@@ -1,93 +1,190 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
-<meta charset="UTF-8">
-<title>3-Minute Timer</title>
-
-<!-- Google Font -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Jersey+25&display=swap" rel="stylesheet">
-
-<style>
-    body {
-        margin: 0;
-        padding: 0;
-        background: transparent;
-        overflow: hidden;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-    }
-
-    #timer-container {
-        position: relative;
-        width: 500px;
-        height: 250px;
-    }
-
+  <meta charset="utf-8">
+  <link href="https://fonts.googleapis.com/css2?family=Jersey+25&display=swap" rel="stylesheet">
+  <style>
     #timer {
-        font-family: 'Jersey 25', sans-serif;
-        font-size: 150px;
-        color: #08CFD3;
-        text-align: center;
-        width: 100%;
-        position: absolute;
-        top: 40px;
-        left: 0;
+      font-family: "Jersey 25", Arial, sans-serif;
+      font-size: 159px;
+      color: #08CFD3;
     }
+  </style>
+</head>
+  :root {
+    --text-color: #08CFD3;
+    --outline-color: #0098fe;
+  }
 
-    /* Rechteck-Sekundenzeiger */
-    #progress-rect {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 500px;
-        height: 250px;
-        border: 6px solid transparent;
-        border-radius: 25px;
-        box-sizing: border-box;
-        pointer-events: none;
+  html,body{
+    height:100%;
+    margin:0;
+    background: transparent; /* Transparent für OBS */
+  }
 
-        /* Animation: Linie wandert im Uhrzeigersinn */
-        border-color: #0098fe transparent transparent transparent;
-        animation: rotateBorder 1s linear infinite;
-        transform-origin: center;
-    }
+  .wrap {
+    width: 420px;             /* passe Größe an, wenn nötig */
+    height: 140px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    position: relative;
+  }
 
-    @keyframes rotateBorder {
-        0%   { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
+  /* Timer-Text */
+  #timer {
+    font-family: "Jersey25", Arial, sans-serif;
+    font-size: 72px;
+    color: var(--text-color);
+    -webkit-text-stroke: 2px var(--outline-color);
+    text-align:center;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* Rahmen-Container (runde Ecken) */
+  .frame {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+    overflow: visible;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Wir verwenden ein SVG innerhalb .frame als Fortschritts-Anzeige.
+     Das ermöglicht eine pixelgenaue, glatte Animation und Kantenglättung. */
+  svg {
+    width:100%;
+    height:100%;
+    display:block;
+  }
+
+  /* Der sichtbare Stroke hat die gewünschte Farbe */
+  .progress {
+    stroke: var(--outline-color);
+    stroke-width: 6;
+    stroke-linecap: round;
+    fill: none;
+    filter: drop-shadow(0 0 8px var(--outline-color));
+  }
 </style>
 </head>
 <body>
 
-<div id="timer-container">
-    <div id="progress-rect"></div>
-    <div id="timer">03:00</div>
+<div class="wrap" aria-hidden="true">
+  <!-- SVG-Frame: ein Rechteck mit abgerundeten Ecken, wir zeichnen den Pfad als "Umlauf" -->
+  <div class="frame">
+    <svg viewBox="0 0 420 140" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Ein Pfad, der die Kontur des Rechtecks entlang geht.
+           Länge (pathLength) nutzen wir, damit wir mit stroke-dasharray/-offset animieren können. -->
+      <path id="path" class="progress" pathLength="1"
+        d="M10 10 H410 A10 10 0 0 1 420 20 V120 A10 10 0 0 1 410 130 H10 A10 10 0 0 1 0 120 V20 A10 10 0 0 1 10 10 Z"
+      />
+    </svg>
+  </div>
+
+  <div id="timer">03:00</div>
 </div>
 
 <script>
-let totalSeconds = 180;
+/* ====== KERN-LOGIK ======
+   - totalTime: Gesamtzeit in Sekunden (3 min = 180)
+   - timeLeft: verbleibende Sekunden
+   - Der "Sekunden-Rahmen" wird über strokeDashOffset animiert:
+     wir setzen stroke-dasharray auf 1 (pathLength) und verschieben offset von 1->0 pro Sekunde.
+   - requestAnimationFrame sorgt für flüssige Bewegung.
+*/
 
-function updateTimer() {
-    let minutes = Math.floor(totalSeconds / 60);
-    let seconds = totalSeconds % 60;
+const totalTime = 180; // 3 Minuten
+let timeLeft = totalTime;
+const timerEl = document.getElementById('timer');
+const pathEl = document.getElementById('path');
 
-    document.getElementById("timer").textContent =
-        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+/* Setze stroke-dasharray so, dass pathLength = 1 (wie im SVG)
+   und wir mit offsets zwischen 1 und 0 arbeiten */
+pathEl.style.strokeDasharray = '1';
+pathEl.style.strokeDashoffset = '1';
 
-    totalSeconds--;
+/* Zeitsteuerung */
+let lastTick = performance.now();   // Zeitpunkt der letzten Sekunde (ms)
+let animStart = performance.now();  // Start der aktuellen 1s-Animation (ms)
+let running = true;
 
-    if (totalSeconds >= 0) {
-        setTimeout(updateTimer, 1000);
-    }
+/* Hilfsfunktion: Timer-Text aktualisieren */
+function renderTimerText(sec) {
+  let m = Math.floor(sec / 60);
+  let s = sec % 60;
+  timerEl.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
 
-updateTimer();
-</script>
+/* Startzustand */
+renderTimerText(timeLeft);
 
+/* Animationsschleife: kümmert sich um sekundengenaues Rennen + glatte 1s-Animation */
+function loop(now) {
+  if (!running) return;
+
+  // Wenn seit lastTick >= 1000ms, reduzieren wir timeLeft (exakt um die Anzahl Sekunden)
+  if (now - lastTick >= 1000) {
+    // Berechne, wie viele ganze Sekunden vergangen sind (falls Frame-Lag)
+    const ticks = Math.floor((now - lastTick) / 1000);
+    timeLeft = Math.max(0, timeLeft - ticks);
+    lastTick += ticks * 1000;
+
+    // Restart der 1s-Animation
+    animStart = now;
+    // wenn timeLeft == 0 können wir optional stoppen oder reseten (hier: stoppt)
+    if (timeLeft === 0) {
+      renderTimerText(0);
+      // Setze progress auf 1 (voll)
+      pathEl.style.strokeDashoffset = '1';
+      // Stoppe weitere Animationen
+      running = false;
+      return;
+    }
+  }
+
+  // Zeit innerhalb der aktuellen Sekunde (0..1)
+  const t = (now - animStart) / 1000;
+  const fraction = Math.max(0, Math.min(1, t));
+
+  // Wir wollen, dass der Rahmen EINE komplette Umdrehung pro Sekunde macht.
+  // strokeDashoffset von 1 -> 0 bedeutet ein kompletter Umlauf.
+  // Für "Sekundenzeiger", invertieren wir, damit 0 = komplett geschlossen
+  const dashOffset = 1 - fraction;
+  pathEl.style.strokeDashoffset = dashOffset;
+
+  // Aktualisiere Timer-Text (zeigt timeLeft verbleibend; optional könnte man auch floor-logic)
+  renderTimerText(timeLeft);
+
+  requestAnimationFrame(loop);
+}
+
+/* Initialisierung der Zeitsynchronisation:
+   lastTick = jetzt - kleiner Anteil, damit erste Sekunde sauber visualisiert wird */
+(function init() {
+  const now = performance.now();
+  lastTick = now;
+  animStart = now;
+  running = true;
+  requestAnimationFrame(loop);
+})();
+
+/* Optional: Funktion, um Timer neu zu starten (z.B. Reset/Restart) */
+function resetCountdown(seconds) {
+  timeLeft = seconds;
+  renderTimerText(timeLeft);
+  lastTick = performance.now();
+  animStart = performance.now();
+  pathEl.style.strokeDashoffset = '1';
+  if (!running) { running = true; requestAnimationFrame(loop); }
+}
+
+/* Expose reset in global for debugging in console */
+window.resetCountdown = resetCountdown;
+
+</script>
 </body>
 </html>
