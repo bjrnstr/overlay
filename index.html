@@ -1,1 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stream Starting Soon</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- GOOGLE FONT -->
+<link href="https://fonts.googleapis.com/css2?family=Jersey+25&display=swap" rel="stylesheet">
+
+<style>
+    body {
+        margin: 0;
+        background: #333333;
+        overflow: hidden;
+        font-family: "Jersey 25", sans-serif;
+    }
+
+    /* --- MAIN CONTAINER --- */
+    .center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #08CFD3;
+        text-shadow: 0 0 8px #08CFD3, 0 0 15px #00f3fe;
+    }
+
+    /* --- MAIN HEADER TEXT --- */
+    .line1 {
+        font-size: 48px;
+        opacity: 0;
+        animation: typeIn 3s steps(20) forwards;
+    }
+
+    .line2 {
+        font-size: 110px;
+        margin-top: -10px;
+        opacity: 0;
+        animation: typeIn 3s steps(10) forwards;
+        animation-delay: 0.2s;
+    }
+
+    @keyframes typeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    /* --- SOCIAL MEDIA SECTION --- */
+    .social-container {
+        margin-top: 40px;
+        text-align: left;
+        width: 300px;
+        margin-left: auto;
+        margin-right: auto;
+        color: #08CFD3;
+        text-shadow: 0 0 8px #08CFD3;
+        opacity: 0;
+        animation: fadeIn 1s forwards;
+        animation-delay: 3s;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    /* --- COUNTDOWN TIMER --- */
+    #timer {
+        margin-top: 40px;
+        font-size: 70px;
+        opacity: 0;
+        animation: fadeIn 2s forwards;
+        animation-delay: 4s;
+        text-shadow: 0 0 8px #00f3fe, 0 0 20px #00f3fe;
+    }
+
+    /* --- ANIMATED RECTANGLE --- */
+    #outline {
+        position: absolute;
+        top: calc(50% + 70px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: 500px;
+        height: 120px;
+        border: 4px solid #00f3fe;
+        opacity: 0;
+        animation: fadeIn 2s forwards;
+        animation-delay: 4s;
+        box-shadow: 0 0 15px #00f3fe;
+    }
+
+    /* --- STAR SHOOTING EFFECT --- */
+    .star {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: #00f3fe;
+        box-shadow: 0 0 10px #00f3fe;
+        border-radius: 50%;
+        opacity: 0;
+    }
+
+</style>
+</head>
+<body>
+
+<!-- MAIN TEXT BLOCK -->
+<div class="center">
+    <div class="line1">The Stream is</div>
+    <div class="line2">Starting</div>
+
+    <!-- SOCIAL MEDIA -->
+    <div class="social-container">
+        <div>Instagram<br>Bjoern_spielt</div>
+        <br>
+        <div>Twitch<br>Bjoern_spielt</div>
+        <br>
+        <div>YouTube<br>Bjoern_spielt</div>
+    </div>
+
+    <!-- COUNTDOWN -->
+    <div id="timer">03:00</div>
+</div>
+
+<!-- OUTLINE BOX -->
+<div id="outline"></div>
+
+<script>
+/* --- COUNTDOWN TIMER --- */
+let minutes = 3;
+let seconds = 0;
+
+function updateTimer() {
+    let m = minutes.toString().padStart(2, "0");
+    let s = seconds.toString().padStart(2, "0");
+
+    document.getElementById("timer").innerText = `${m}:${s}`;
+
+    if (minutes === 0 && seconds === 0) return;
+
+    if (seconds === 0) {
+        minutes--;
+        seconds = 59;
+    } else {
+        seconds--;
+    }
+}
+setInterval(updateTimer, 1000);
+
+
+/* --- SHOOTING STARS --- */
+function spawnStar() {
+    if (document.querySelectorAll(".star").length >= 3) return;
+
+    const star = document.createElement("div");
+    star.classList.add("star");
+    document.body.appendChild(star);
+
+    let startX = window.innerWidth * (0.6 + Math.random() * 0.4);
+    let startY = window.innerHeight * Math.random() * 0.4;
+
+    let distance = 300 + Math.random() * 400;
+    let duration = 800 + Math.random() * 800;
+
+    star.style.left = startX + "px";
+    star.style.top = startY + "px";
+    star.style.opacity = 1;
+
+    let endX = startX - distance;
+    let endY = startY + distance;
+
+    star.animate([
+        { transform: "translate(0,0)", opacity: 1 },
+        { transform: `translate(${endX - startX}px, ${endY - startY}px)`, opacity: 0 }
+    ], {
+        duration: duration,
+        easing: "cubic-bezier(0.1, 0.2, 0.3, 1)"
+    });
+
+    setTimeout(() => star.remove(), duration);
+}
+
+setInterval(() => spawnStar(), 1000 + Math.random() * 3000);
+</script>
+
+</body>
+</html>
 
